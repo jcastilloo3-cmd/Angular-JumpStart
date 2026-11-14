@@ -1,0 +1,50 @@
+name: SonarQube Cloud
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build:
+    name: Build, pruebas y análisis SonarQube Cloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: 16
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci --legacy-peer-deps
+
+      - name: Compilar el proyecto
+        run: npm run build
+
+      - name: Ejecutar pruebas
+        run: |
+          if find src -name "*.spec.ts" | grep -q .; then
+            npx ng test --watch=false --browsers=ChromeHeadless --code-coverage
+          else
+            echo "El proyecto no contiene pruebas unitarias (*.spec.ts); no hay pruebas que ejecutar."
+          fi
+
+      - name: Cache de paquetes de SonarQube
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Análisis SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@v8.4.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
